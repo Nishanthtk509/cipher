@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cipher AI</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        body{
+            background:
+                radial-gradient(circle at top,
+                #0f2a43 0%,
+                #020617 60%);
+        }
+
+        .glass{
+            backdrop-filter: blur(20px);
+        }
+
+        .chat-scroll::-webkit-scrollbar{
+            width:6px;
+        }
+
+        .chat-scroll::-webkit-scrollbar-track{
+            background:transparent;
+        }
+
+        .chat-scroll::-webkit-scrollbar-thumb{
+            background:#22d3ee;
+            border-radius:999px;
+        }
+
+        @keyframes pulseRing{
+            0%{
+                transform:scale(1);
+                opacity:1;
+            }
+
+            100%{
+                transform:scale(1.7);
+                opacity:0;
+            }
+        }
+
+        .pulse-ring{
+            animation:pulseRing 1.5s infinite;
+        }
+    </style>
+</head>
+
+<body class="text-white">
+
+<div class="h-screen flex flex-col">
+
+    <!-- HEADER -->
+
+    <header class="border-b border-cyan-500/20 bg-slate-950/60 glass">
+
+        <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+
+            <div>
+                <h1 class="text-3xl font-bold text-cyan-400">
+                    CIPHER
+                </h1>
+
+                <p class="text-sm text-cyan-200">
+                    Advanced AI Assistant
+                </p>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+                <span class="text-green-400 text-sm">
+                    ONLINE
+                </span>
+            </div>
+
+        </div>
+
+    </header>
+
+    <!-- CHAT -->
+
+    <main
+        id="chatBox"
+        class="flex-1 overflow-y-auto chat-scroll"
+    >
+
+        <div class="max-w-5xl mx-auto px-4 py-8">
+
+            {% for chat in conversations %}
+
+            <!-- USER -->
+
+            <div class="flex justify-end mb-6">
+
+                <div
+                    class="bg-cyan-500 text-white px-5 py-4 rounded-3xl rounded-br-lg max-w-2xl shadow-lg"
+                >
+                    {{ chat.question }}
+                </div>
+
+            </div>
+
+            <!-- AI -->
+
+            <div class="flex justify-start mb-8">
+
+                <div
+                    class="bg-slate-900/80 border border-cyan-500/20 px-5 py-4 rounded-3xl rounded-bl-lg max-w-2xl"
+                >
+                    <div class="cipher-response">
+                        {{ chat.answer }}
+                    </div>
+                </div>
+
+            </div>
+
+            {% endfor %}
+
+        </div>
+
+    </main>
+
+    <!-- INPUT -->
+
+    <footer
+        class="border-t border-cyan-500/20 bg-slate-950/70 glass"
+    >
+
+        <div class="max-w-5xl mx-auto p-4">
+
+            <form method="POST" class="flex gap-3">
+
+                {% csrf_token %}
+
+                <input
+                    id="messageInput"
+                    type="text"
+                    name="message"
+                    placeholder="Ask Cipher anything..."
+                    required
+                    class="flex-1 bg-slate-900 border border-cyan-500/20 rounded-2xl px-5 py-4 outline-none focus:border-cyan-400"
+                >
+
+                <!-- MIC -->
+
+                <div class="relative">
+
+                    <div
+                        id="ring"
+                        class="hidden absolute inset-0 border border-cyan-400 rounded-full"
+                    ></div>
+
+                    <button
+                        type="button"
+                        id="micBtn"
+                        class="w-14 h-14 rounded-full bg-cyan-500 text-black text-xl hover:scale-105 transition"
+                    >
+                       <i class="fa-solid fa-microphone"></i>
+                    </button>
+
+                </div>
+
+                <!-- SEND -->
+
+                <button
+                    type="submit"
+                    class="px-8 py-4 bg-cyan-500 text-black font-semibold rounded-2xl hover:bg-cyan-400 transition"
+                >
+                    Send
+                </button>
+
+            </form>
+
+        </div>
+
+    </footer>
+
+</div>
+
+<script>
+
+// AUTO SCROLL
+
+window.addEventListener("load", () => {
+
+    const chatBox =
+    document.getElementById("chatBox");
+
+    chatBox.scrollTop =
+    chatBox.scrollHeight;
+
+});
+
+
+// VOICE OUTPUT
+
+function speak(text){
+
+    if(!text) return;
+
+    window.speechSynthesis.cancel();
+
+    const speech =
+    new SpeechSynthesisUtterance(text);
+
+    const voices =
+    window.speechSynthesis.getVoices();
+
+    const voice =
+        voices.find(v => v.name.includes("Zira")) ||
+        voices.find(v => v.name.includes("Jenny")) ||
+        voices.find(v => v.lang.includes("en"));
+
+    if(voice){
+        speech.voice = voice;
+    }
+
+    speech.rate = 0.95;
+    speech.pitch = 1.05;
+
+    window.speechSynthesis.speak(speech);
+}
+
+window.onload = () => {
+
+    const responses =
+    document.querySelectorAll(".cipher-response");
+
+    if(responses.length){
+
+        const latest =
+        responses[responses.length - 1];
+
+        speak(latest.innerText);
+    }
+
+};
+
+
+// VOICE INPUT
+
+const micBtn =
+document.getElementById("micBtn");
+
+const ring =
+document.getElementById("ring");
+
+const input =
+document.getElementById("messageInput");
+
+if(
+    window.SpeechRecognition ||
+    window.webkitSpeechRecognition
+){
+
+    const SpeechRecognition =
+        window.SpeechRecognition ||
+        window.webkitSpeechRecognition;
+
+    const recognition =
+        new SpeechRecognition();
+
+    recognition.lang = "en-US";
+
+    micBtn.addEventListener("click", () => {
+
+        ring.classList.remove("hidden");
+        ring.classList.add("pulse-ring");
+
+        recognition.start();
+
+    });
+
+    recognition.onresult = (event) => {
+
+        input.value =
+        event.results[0][0].transcript;
+
+    };
+
+    recognition.onend = () => {
+
+        ring.classList.add("hidden");
+        ring.classList.remove("pulse-ring");
+
+    };
+
+}
+
+</script>
+
+</body>
+</html>
