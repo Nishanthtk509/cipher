@@ -201,9 +201,23 @@
 
         recognition.onresult = (event) => {
             const transcript = event.results[0][0].transcript;
-            document.getElementById("questionInput").value = transcript;
-            statusEl().innerText = "✅ Got it! Sending...";
-            document.getElementById("chatForm").submit();
+
+            const input = document.getElementById("questionInput");
+            input.value = transcript;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+
+            statusEl().innerText = "✅ Got: " + transcript;
+
+            // Remove required so programmatic value doesn't block submit
+            input.removeAttribute("required");
+
+            // Force CSRF token is not disabled
+            const csrfInput = document.querySelector("input[name='csrfmiddlewaretoken']");
+            if (csrfInput) csrfInput.disabled = false;
+
+            setTimeout(() => {
+                document.getElementById("chatForm").submit();
+            }, 500);
         };
 
         recognition.onerror = (event) => {
