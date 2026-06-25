@@ -7,6 +7,41 @@ from django.shortcuts import get_object_or_404
 
 from django.views.decorators.cache import never_cache
 
+from django.contrib.auth import authenticate, login
+
+
+def admin_login(request):
+
+    error = ""
+
+    if request.method == "POST":
+
+        username = request.POST.get("username")
+        password = request.POST.get("password")
+
+        user = authenticate(
+            request,
+            username=username,
+            password=password
+        )
+
+        if user and user.is_superuser:
+
+            login(request, user)
+
+            return redirect("knowledge")
+
+        error = "Invalid admin credentials"
+
+    return render(
+        request,
+        "adminlogin.html",
+        {
+            "error": error
+        }
+    )
+
+
 @never_cache
 def Register(request):
 
@@ -53,7 +88,7 @@ def Register(request):
 
 
 @never_cache
-def login(request):
+def user_login(request):
 
     error = ""
 
@@ -152,9 +187,20 @@ def get_prebuilt(question):
 
 
 
+
+from django.shortcuts import render, redirect
+from django.views.decorators.cache import never_cache
+
+
+
+from django.shortcuts import render, redirect
+from django.views.decorators.cache import never_cache
+
+
+@never_cache
 def chatbot(request):
 
-    # Authentication Check
+    # Check Login
     if "user_id" not in request.session:
         return redirect("login")
 
@@ -169,54 +215,78 @@ def chatbot(request):
 
         if question:
 
-            # Prebuilt Responses
             prebuilt = get_prebuilt(question)
 
             if prebuilt:
-
                 answer = prebuilt
-
             else:
-
-                # Knowledge Base Search
                 answer = generate_answer(question)
 
-    return render(
+    response = render(
         request,
         "index.html",
         {
             "answer": answer,
-            "username": request.session.get(
-                "username"
-            )
+            "username": request.session.get("username")
         }
     )
 
+    response["Cache-Control"] = (
+        "no-cache, no-store, must-revalidate, max-age=0"
+    )
+    response["Pragma"] = "no-cache"
+    response["Expires"] = "0"
 
+    return response
+
+
+@never_cache
+def logout(request):
+
+    # Clear Session
+    request.session.flush()
+
+    response = redirect("login")
+
+    response["Cache-Control"] = (
+        "no-cache, no-store, must-revalidate, max-age=0"
+    )
+    response["Pragma"] = "no-cache"
+    response["Expires"] = "0"
+
+    return response
+
+
+
+
+from django.contrib.auth.decorators import user_passes_test
+
+@never_cache
+@user_passes_test(lambda u: u.is_superuser)
 def KnowledgeView(request):
+
     knowledge_list = Knowledge.objects.all().order_by("-id")
-    message = ""
 
-    if request.method == "POST":
-        title = request.POST.get("title")
-        content = request.POST.get("content")
-
-        Knowledge.objects.create(
-            title=title,
-            content=content
-        )
-
-        message = "Knowledge added successfully."
-
-    return render(
+    response = render(
         request,
         "knowledge.html",
         {
-            "message": message,
             "knowledge_list": knowledge_list
         }
     )
 
+    response["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+    response["Pragma"] = "no-cache"
+    response["Expires"] = "0"
+
+    return response
+
+
+from django.contrib.auth.decorators import user_passes_test
+
+
+@never_cache
+@user_passes_test(lambda u: u.is_superuser)
 def EditKnowledge(request, id):
 
     knowledge = get_object_or_404(
@@ -233,7 +303,11 @@ def EditKnowledge(request, id):
 
     return redirect("knowledge")
 
+from django.contrib.auth.decorators import user_passes_test
 
+
+@never_cache
+@user_passes_test(lambda u: u.is_superuser)
 def DeleteKnowledge(request, id):
 
     knowledge = get_object_or_404(Knowledge, id=id)
@@ -249,11 +323,15 @@ def DeleteKnowledge(request, id):
 
 
 
-def logout(request):
+@never_cache
+def admin_logout(request):
 
-    # Remove all session data
-    request.session.flush()
+    if request.method == "POST":
+        logout(request)
 
-    return redirect("login")
+    return redirect("admin_login")
+
+
+
 
 

@@ -134,6 +134,18 @@
         </div>
 
     </div>
+    <div class="border-t border-white/10 mt-3 pt-3">
+           <form method="POST" action="{% url 'admin_logout' %}">
+    {% csrf_token %}
+    <button
+        type="submit"
+        class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl"
+    >
+        Logout
+    </button>
+</form>
+        </div>
+
 
 </div>
 

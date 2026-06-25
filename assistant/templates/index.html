@@ -85,11 +85,15 @@
         </a>
 
         <div class="border-t border-white/10 mt-3 pt-3">
-            <a href="/logout/"
-               class="flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:text-red-300 hover:bg-red-500/10 transition text-sm font-medium">
-                <span class="text-xl">🚪</span>
-                Logout
-            </a>
+           <form method="POST" action="{% url 'logout' %}">
+    {% csrf_token %}
+    <button
+        type="submit"
+        class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl"
+    >
+        Logout
+    </button>
+</form>
         </div>
 
     </div>
@@ -377,6 +381,23 @@
     init();
 
 </script>
+
+<script>
+window.addEventListener("pageshow", function (event) {
+
+    if (
+        event.persisted ||
+        (window.performance &&
+         window.performance.navigation &&
+         window.performance.navigation.type === 2)
+    ) {
+        window.location.reload();
+    }
+
+});
+</script>
+
+
 
 <style>
 
