@@ -10,7 +10,6 @@
 
 <body class="min-h-screen bg-[radial-gradient(circle_at_top,_#0f2a43_0%,_#020617_60%)]">
 
-```
 <!-- Main Content -->
 <div class="max-w-4xl mx-auto px-4 pt-10 pb-40">
 
@@ -108,117 +107,156 @@
 
 </div>
 
-<!-- Answer Speech -->
-{% if answer %}
+<!-- Voice + Speech Script (single unified block) -->
 <script>
 
-window.speechSynthesis.cancel();
+    // ── State ──────────────────────────────────────────────
+    let isListening = false;
+    let micPermissionGranted = false;
 
-const answerText =
-    `{{ answer|escapejs }}`;
+    const statusEl = () => document.getElementById("voice-status");
 
-const speech =
-    new SpeechSynthesisUtterance(answerText);
+    // ── Speech Synthesis ───────────────────────────────────
+    function speakAnswer(text) {
 
-speech.rate = 1;
-speech.pitch = 1;
-speech.volume = 1;
+        if (!text) return;
 
-speech.onstart = () => {
+        window.speechSynthesis.cancel();
 
-    if(window.recognition){
-        window.recognition.stop();
+        const speech = new SpeechSynthesisUtterance(text);
+        speech.rate  = 1;
+        speech.pitch = 1.1;
+        speech.volume = 1;
+
+        // Pick a female voice if available
+        const pickVoice = () => {
+            const voices = window.speechSynthesis.getVoices();
+            return voices.find(v =>
+                /female|zira|susan|samantha|victoria|karen|hazel|aria/i.test(v.name)
+            );
+        };
+
+        const voice = pickVoice();
+        if (voice) speech.voice = voice;
+
+        speech.onstart = () => {
+            if (window.recognition) window.recognition.stop();
+            statusEl().innerText = "🔊 Speaking...";
+        };
+
+        speech.onend = () => {
+            statusEl().innerText = "🎤 Listening...";
+            startListening();
+        };
+
+        speech.onerror = () => {
+            statusEl().innerText = "Click anywhere to activate voice assistant";
+        };
+
+        window.speechSynthesis.speak(speech);
     }
 
-    document.getElementById("voice-status")
-        .innerText = "🔊 Speaking...";
-};
+    // Wait for voices to load then speak the answer (if any)
+    const answerText = `{{ answer|escapejs }}`;
 
-speech.onend = () => {
-
-    document.getElementById("voice-status")
-        .innerText = "🎤 Listening...";
-
-    if(window.startListening){
-        window.startListening();
+    if (answerText) {
+        if (window.speechSynthesis.getVoices().length) {
+            speakAnswer(answerText);
+        } else {
+            window.speechSynthesis.onvoiceschanged = () => speakAnswer(answerText);
+        }
     }
-};
 
-window.speechSynthesis.speak(speech);
+    // ── Speech Recognition ─────────────────────────────────
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-</script>
-{% endif %}
+    if (!SpeechRecognition) {
 
-<!-- Voice Recognition -->
+        statusEl().innerText = "⚠️ Voice only works in Chrome — please switch browsers";
 
-<script>
+    } else {
 
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+        window.recognition = recognition;
 
-if (SpeechRecognition) {
+        recognition.continuous     = false;
+        recognition.interimResults = false;
+        recognition.lang           = 'en-US';
 
-    const recognition = new SpeechRecognition();
-    window.recognition = recognition;
+        // ── Start listening ──
+        window.startListening = function () {
+            if (isListening || window.speechSynthesis.speaking) return;
+            try {
+                recognition.start();
+                isListening = true;
+            } catch (e) {
+                isListening = false;
+            }
+        };
 
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = 'en-US';
+        recognition.onstart = () => {
+            isListening = true;
+            statusEl().innerText = "🎤 Listening...";
+        };
 
-    window.startListening = function () {
-        try {
-            recognition.start();
-        } catch(e) {}
-    };
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            document.getElementById("questionInput").value = transcript;
+            statusEl().innerText = "✅ Got it! Sending...";
+            document.getElementById("chatForm").submit();
+        };
 
-    recognition.onstart = () => {
-        document.getElementById("voice-status").innerText = "🎤 Listening...";
-    };
+        recognition.onerror = (event) => {
+            isListening = false;
+            const messages = {
+                'not-allowed' : "❌ Mic blocked — allow mic in your browser settings",
+                'network'     : "❌ Network error — Chrome needs internet for speech API",
+                'no-speech'   : "🎤 No speech detected — click to try again",
+                'aborted'     : "🎤 Cancelled — click to try again",
+            };
+            statusEl().innerText = messages[event.error] || "❌ Error: " + event.error;
+        };
 
-    recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
+        recognition.onend = () => {
+            isListening = false;
+            if (!window.speechSynthesis.speaking) {
+                statusEl().innerText = "Click anywhere to activate voice assistant";
+            }
+        };
 
-        const input = document.getElementById("questionInput");
-        input.value = transcript;
+        // ── Click to activate ──
+        // Explicitly request mic permission first (required on HTTPS / Render)
+        document.addEventListener("click", async (e) => {
 
-        document.getElementById("voice-status").innerText = "✅ Got it! Sending...";
+            // Don't intercept the form submit button
+            if (e.target.closest("button[type='submit']")) return;
 
-        // Auto-submit the form
-        document.getElementById("chatForm").submit();
-    };
+            if (window.speechSynthesis.speaking || isListening) return;
 
-    recognition.onerror = (event) => {
-        document.getElementById("voice-status").innerText = "❌ Error: " + event.error;
-    };
+            if (!micPermissionGranted) {
+                try {
+                    await navigator.mediaDevices.getUserMedia({ audio: true });
+                    micPermissionGranted = true;
+                } catch (err) {
+                    statusEl().innerText = "❌ Mic permission denied — allow it in browser settings";
+                    return;
+                }
+            }
 
-    recognition.onend = () => {
-        // Only restart if not speaking
-        if (!window.speechSynthesis.speaking) {
-            document.getElementById("voice-status").innerText = "Click anywhere to activate";
-        }
-    };
+            startListening();
+        });
 
-    // Start on click
-    document.addEventListener("click", () => {
-        if (!window.speechSynthesis.speaking) {
-            window.startListening();
-        }
-    });
-
-} else {
-    document.getElementById("voice-status").innerText = "⚠️ Voice not supported in this browser";
-}
+    }
 
 </script>
 
 <style>
 
 @keyframes fadeIn {
-
     from {
         opacity: 0;
         transform: translateY(20px);
     }
-
     to {
         opacity: 1;
         transform: translateY(0);
@@ -230,7 +268,6 @@ if (SpeechRecognition) {
 }
 
 </style>
-```
 
 </body>
 </html>
