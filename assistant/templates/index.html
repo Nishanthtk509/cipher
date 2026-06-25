@@ -32,7 +32,7 @@
             id="voice-status"
             class="mt-5 text-green-400 font-medium"
         >
-            Click anywhere to activate voice assistant
+            🎤 Starting mic...
         </div>
 
     </div>
@@ -89,9 +89,8 @@
                 type="text"
                 name="question"
                 id="questionInput"
-                placeholder="Speak or type your question..."
+                placeholder="Listening... or type your question"
                 class="flex-1 bg-transparent px-4 py-3 text-white placeholder-slate-400 focus:outline-none"
-                required
             >
 
             <button
@@ -107,14 +106,98 @@
 
 </div>
 
-<!-- Voice + Speech Script (single unified block) -->
 <script>
 
-    // ── State ──────────────────────────────────────────────
-    let isListening = false;
-    let micPermissionGranted = false;
+    const statusEl  = () => document.getElementById("voice-status");
+    const input     = document.getElementById("questionInput");
+    const form      = document.getElementById("chatForm");
 
-    const statusEl = () => document.getElementById("voice-status");
+    let isListening = false;
+    let isSpeaking  = false;
+
+    // ── Speech Recognition Setup ───────────────────────────
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+        statusEl().innerText = "⚠️ Use Chrome for voice support";
+    }
+
+    const recognition = SpeechRecognition ? new SpeechRecognition() : null;
+
+    if (recognition) {
+
+        recognition.continuous     = false;
+        recognition.interimResults = true;  // show words as they come in
+        recognition.lang           = "en-US";
+
+        recognition.onstart = () => {
+            isListening          = true;
+            statusEl().innerText = "🎤 Listening...";
+        };
+
+        // Show interim results in input box as user speaks
+        recognition.onresult = (event) => {
+            let interim = "";
+            let final   = "";
+
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                const t = event.results[i][0].transcript;
+                if (event.results[i].isFinal) {
+                    final += t;
+                } else {
+                    interim += t;
+                }
+            }
+
+            // Print to input box live
+            input.value = final || interim;
+
+            if (final) {
+                statusEl().innerText = "✅ Got: " + final;
+                input.removeAttribute("required");
+                setTimeout(() => form.submit(), 800);
+            }
+        };
+
+        recognition.onerror = (event) => {
+            isListening = false;
+
+            if (event.error === "not-allowed") {
+                statusEl().innerText = "❌ Mic blocked — allow mic in Chrome settings";
+                return; // don't restart if permission denied
+            }
+
+            // For all other errors, restart after a short delay
+            statusEl().innerText = "⚠️ " + event.error + " — restarting...";
+            setTimeout(() => startListening(), 1000);
+        };
+
+        recognition.onend = () => {
+            isListening = false;
+
+            // Auto restart unless speaking or tab is hidden
+            if (!isSpeaking && !document.hidden) {
+                setTimeout(() => startListening(), 300);
+            }
+        };
+    }
+
+    // ── Start Listening ────────────────────────────────────
+    function startListening() {
+        if (!recognition || isListening || isSpeaking || document.hidden) return;
+        try {
+            recognition.start();
+        } catch (e) {
+            // already started — ignore
+        }
+    }
+
+    // Restart mic when tab becomes visible again
+    document.addEventListener("visibilitychange", () => {
+        if (!document.hidden && !isSpeaking) {
+            setTimeout(() => startListening(), 300);
+        }
+    });
 
     // ── Speech Synthesis ───────────────────────────────────
     function speakAnswer(text) {
@@ -123,144 +206,69 @@
 
         window.speechSynthesis.cancel();
 
-        const speech = new SpeechSynthesisUtterance(text);
-        speech.rate  = 1;
-        speech.pitch = 1.1;
-        speech.volume = 1;
+        const utter  = new SpeechSynthesisUtterance(text);
+        utter.rate   = 1;
+        utter.pitch  = 1.1;
+        utter.volume = 1;
 
-        // Pick a female voice if available
-        const pickVoice = () => {
-            const voices = window.speechSynthesis.getVoices();
-            return voices.find(v =>
-                /female|zira|susan|samantha|victoria|karen|hazel|aria/i.test(v.name)
-            );
-        };
+        const voices   = window.speechSynthesis.getVoices();
+        const femVoice = voices.find(v =>
+            /female|zira|susan|samantha|victoria|karen|hazel|aria/i.test(v.name)
+        );
+        if (femVoice) utter.voice = femVoice;
 
-        const voice = pickVoice();
-        if (voice) speech.voice = voice;
-
-        speech.onstart = () => {
-            if (window.recognition) window.recognition.stop();
+        utter.onstart = () => {
+            isSpeaking = true;
+            // Stop mic before speaking to avoid feedback
+            if (recognition) recognition.abort();
             statusEl().innerText = "🔊 Speaking...";
         };
 
-        speech.onend = () => {
-            statusEl().innerText = "🎤 Listening...";
-            startListening();
+        utter.onend = () => {
+            isSpeaking = false;
+            // Wait 500ms after speaking before restarting mic
+            setTimeout(() => startListening(), 500);
         };
 
-        speech.onerror = () => {
-            statusEl().innerText = "Click anywhere to activate voice assistant";
+        utter.onerror = () => {
+            isSpeaking = false;
+            setTimeout(() => startListening(), 500);
         };
 
-        window.speechSynthesis.speak(speech);
+        window.speechSynthesis.speak(utter);
     }
 
-    // Wait for voices to load then speak the answer (if any)
-    const answerText = `{{ answer|escapejs }}`;
+    // ── Init on page load ──────────────────────────────────
+    async function init() {
 
-    if (answerText) {
-        if (window.speechSynthesis.getVoices().length) {
-            speakAnswer(answerText);
+        // Request mic permission on page load
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            stream.getTracks().forEach(t => t.stop()); // release stream, recognition manages its own
+        } catch (err) {
+            statusEl().innerText = "❌ Mic permission denied — allow it in Chrome settings";
+            return;
+        }
+
+        const answerText = `{{ answer|escapejs }}`;
+
+        if (answerText) {
+            // Speak the answer first, mic restarts after
+            if (window.speechSynthesis.getVoices().length) {
+                speakAnswer(answerText);
+            } else {
+                window.speechSynthesis.onvoiceschanged = () => {
+                    window.speechSynthesis.onvoiceschanged = null;
+                    speakAnswer(answerText);
+                };
+            }
         } else {
-            window.speechSynthesis.onvoiceschanged = () => speakAnswer(answerText);
+            // No answer — start listening immediately
+            startListening();
         }
     }
 
-    // ── Speech Recognition ─────────────────────────────────
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-
-        statusEl().innerText = "⚠️ Voice only works in Chrome — please switch browsers";
-
-    } else {
-
-        const recognition = new SpeechRecognition();
-        window.recognition = recognition;
-
-        recognition.continuous     = false;
-        recognition.interimResults = false;
-        recognition.lang           = 'en-US';
-
-        // ── Start listening ──
-        window.startListening = function () {
-            if (isListening || window.speechSynthesis.speaking) return;
-            try {
-                recognition.start();
-                isListening = true;
-            } catch (e) {
-                isListening = false;
-            }
-        };
-
-        recognition.onstart = () => {
-            isListening = true;
-            statusEl().innerText = "🎤 Listening...";
-        };
-
-        recognition.onresult = (event) => {
-            const transcript = event.results[0][0].transcript;
-
-            const input = document.getElementById("questionInput");
-            input.value = transcript;
-            input.dispatchEvent(new Event('input', { bubbles: true }));
-
-            statusEl().innerText = "✅ Got: " + transcript;
-
-            // Remove required so programmatic value doesn't block submit
-            input.removeAttribute("required");
-
-            // Force CSRF token is not disabled
-            const csrfInput = document.querySelector("input[name='csrfmiddlewaretoken']");
-            if (csrfInput) csrfInput.disabled = false;
-
-            setTimeout(() => {
-                document.getElementById("chatForm").submit();
-            }, 500);
-        };
-
-        recognition.onerror = (event) => {
-            isListening = false;
-            const messages = {
-                'not-allowed' : "❌ Mic blocked — allow mic in your browser settings",
-                'network'     : "❌ Network error — Chrome needs internet for speech API",
-                'no-speech'   : "🎤 No speech detected — click to try again",
-                'aborted'     : "🎤 Cancelled — click to try again",
-            };
-            statusEl().innerText = messages[event.error] || "❌ Error: " + event.error;
-        };
-
-        recognition.onend = () => {
-            isListening = false;
-            if (!window.speechSynthesis.speaking) {
-                statusEl().innerText = "Click anywhere to activate voice assistant";
-            }
-        };
-
-        // ── Click to activate ──
-        // Explicitly request mic permission first (required on HTTPS / Render)
-        document.addEventListener("click", async (e) => {
-
-            // Don't intercept the form submit button
-            if (e.target.closest("button[type='submit']")) return;
-
-            if (window.speechSynthesis.speaking || isListening) return;
-
-            if (!micPermissionGranted) {
-                try {
-                    await navigator.mediaDevices.getUserMedia({ audio: true });
-                    micPermissionGranted = true;
-                } catch (err) {
-                    statusEl().innerText = "❌ Mic permission denied — allow it in browser settings";
-                    return;
-                }
-            }
-
-            startListening();
-        });
-
-    }
+    init();
 
 </script>
 
