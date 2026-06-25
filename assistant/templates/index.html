@@ -1,297 +1,241 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cipher AI</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <title>Cipher AI Assistant</title>
     <script src="https://cdn.tailwindcss.com"></script>
-
-    <style>
-        body{
-            background:
-                radial-gradient(circle at top,
-                #0f2a43 0%,
-                #020617 60%);
-        }
-
-        .glass{
-            backdrop-filter: blur(20px);
-        }
-
-        .chat-scroll::-webkit-scrollbar{
-            width:6px;
-        }
-
-        .chat-scroll::-webkit-scrollbar-track{
-            background:transparent;
-        }
-
-        .chat-scroll::-webkit-scrollbar-thumb{
-            background:#22d3ee;
-            border-radius:999px;
-        }
-
-        @keyframes pulseRing{
-            0%{
-                transform:scale(1);
-                opacity:1;
-            }
-
-            100%{
-                transform:scale(1.7);
-                opacity:0;
-            }
-        }
-
-        .pulse-ring{
-            animation:pulseRing 1.5s infinite;
-        }
-    </style>
 </head>
 
-<body class="text-white">
+<body class="min-h-screen bg-[radial-gradient(circle_at_top,_#0f2a43_0%,_#020617_60%)]">
 
-<div class="h-screen flex flex-col">
+```
+<!-- Main Content -->
+<div class="max-w-4xl mx-auto px-4 pt-10 pb-40">
 
-    <!-- HEADER -->
+    <!-- Header -->
+    <div class="text-center mb-10">
 
-    <header class="border-b border-cyan-500/20 bg-slate-950/60 glass">
+        <div class="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-blue-500/20 backdrop-blur-lg border border-blue-500/20 mb-5">
+            <span class="text-4xl">🤖</span>
+        </div>
 
-        <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+        <h1 class="text-5xl font-bold text-white">
+            Cipher AI
+        </h1>
+
+        <p class="text-slate-400 mt-3">
+            Ask questions from your knowledge base
+        </p>
+
+        <div
+            id="voice-status"
+            class="mt-5 text-green-400 font-medium"
+        >
+            Click anywhere to activate voice assistant
+        </div>
+
+    </div>
+
+    <!-- AI Response -->
+    {% if answer %}
+    <div class="bg-white/10 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-xl animate-fadeIn">
+
+        <div class="flex items-center gap-3 mb-5">
+
+            <div class="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center">
+                <span class="text-xl">✨</span>
+            </div>
 
             <div>
-                <h1 class="text-3xl font-bold text-cyan-400">
-                    CIPHER
-                </h1>
+                <h2 class="text-white text-xl font-semibold">
+                    AI Response
+                </h2>
 
-                <p class="text-sm text-cyan-200">
-                    Advanced AI Assistant
+                <p class="text-slate-400 text-sm">
+                    Generated from your knowledge base
                 </p>
             </div>
 
-            <div class="flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
-                <span class="text-green-400 text-sm">
-                    ONLINE
-                </span>
-            </div>
+        </div>
+
+        <div class="border-t border-white/10 pt-5">
+
+            <p class="text-slate-200 whitespace-pre-line leading-8">
+                {{ answer }}
+            </p>
 
         </div>
 
-    </header>
-
-    <!-- CHAT -->
-
-    <main
-        id="chatBox"
-        class="flex-1 overflow-y-auto chat-scroll"
-    >
-
-        <div class="max-w-5xl mx-auto px-4 py-8">
-
-            {% for chat in conversations %}
-
-            <!-- USER -->
-
-            <div class="flex justify-end mb-6">
-
-                <div
-                    class="bg-cyan-500 text-white px-5 py-4 rounded-3xl rounded-br-lg max-w-2xl shadow-lg"
-                >
-                    {{ chat.question }}
-                </div>
-
-            </div>
-
-            <!-- AI -->
-
-            <div class="flex justify-start mb-8">
-
-                <div
-                    class="bg-slate-900/80 border border-cyan-500/20 px-5 py-4 rounded-3xl rounded-bl-lg max-w-2xl"
-                >
-                    <div class="cipher-response">
-                        {{ chat.answer }}
-                    </div>
-                </div>
-
-            </div>
-
-            {% endfor %}
-
-        </div>
-
-    </main>
-
-    <!-- INPUT -->
-
-    <footer
-        class="border-t border-cyan-500/20 bg-slate-950/70 glass"
-    >
-
-        <div class="max-w-5xl mx-auto p-4">
-
-            <form method="POST" class="flex gap-3">
-
-                {% csrf_token %}
-
-                <input
-                    id="messageInput"
-                    type="text"
-                    name="message"
-                    placeholder="Ask Cipher anything..."
-                    required
-                    class="flex-1 bg-slate-900 border border-cyan-500/20 rounded-2xl px-5 py-4 outline-none focus:border-cyan-400"
-                >
-
-                <!-- MIC -->
-
-                <div class="relative">
-
-                    <div
-                        id="ring"
-                        class="hidden absolute inset-0 border border-cyan-400 rounded-full"
-                    ></div>
-
-                    <button
-                        type="button"
-                        id="micBtn"
-                        class="w-14 h-14 rounded-full bg-cyan-500 text-black text-xl hover:scale-105 transition"
-                    >
-                       <i class="fa-solid fa-microphone"></i>
-                    </button>
-
-                </div>
-
-                <!-- SEND -->
-
-                <button
-                    type="submit"
-                    class="px-8 py-4 bg-cyan-500 text-black font-semibold rounded-2xl hover:bg-cyan-400 transition"
-                >
-                    Send
-                </button>
-
-            </form>
-
-        </div>
-
-    </footer>
+    </div>
+    {% endif %}
 
 </div>
 
+<!-- Fixed Bottom Input -->
+<div class="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#020617] via-[#020617]/95 to-transparent">
+
+    <div class="max-w-4xl mx-auto">
+
+        <form
+            method="POST"
+            id="chatForm"
+            class="bg-white/10 backdrop-blur-xl border border-white/10 rounded-3xl p-3 flex gap-3 shadow-2xl"
+        >
+
+            {% csrf_token %}
+
+            <input
+                type="text"
+                name="question"
+                id="questionInput"
+                placeholder="Speak or type your question..."
+                class="flex-1 bg-transparent px-4 py-3 text-white placeholder-slate-400 focus:outline-none"
+                required
+            >
+
+            <button
+                type="submit"
+                class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl transition"
+            >
+                Ask
+            </button>
+
+        </form>
+
+    </div>
+
+</div>
+
+<!-- Answer Speech -->
+{% if answer %}
 <script>
 
-// AUTO SCROLL
+window.speechSynthesis.cancel();
 
-window.addEventListener("load", () => {
+const answerText =
+    `{{ answer|escapejs }}`;
 
-    const chatBox =
-    document.getElementById("chatBox");
+const speech =
+    new SpeechSynthesisUtterance(answerText);
 
-    chatBox.scrollTop =
-    chatBox.scrollHeight;
+speech.rate = 1;
+speech.pitch = 1;
+speech.volume = 1;
 
-});
+speech.onstart = () => {
 
-
-// VOICE OUTPUT
-
-function speak(text){
-
-    if(!text) return;
-
-    window.speechSynthesis.cancel();
-
-    const speech =
-    new SpeechSynthesisUtterance(text);
-
-    const voices =
-    window.speechSynthesis.getVoices();
-
-    const voice =
-        voices.find(v => v.name.includes("Zira")) ||
-        voices.find(v => v.name.includes("Jenny")) ||
-        voices.find(v => v.lang.includes("en"));
-
-    if(voice){
-        speech.voice = voice;
+    if(window.recognition){
+        window.recognition.stop();
     }
 
-    speech.rate = 0.95;
-    speech.pitch = 1.05;
+    document.getElementById("voice-status")
+        .innerText = "🔊 Speaking...";
+};
+
+speech.onend = () => {
+
+    document.getElementById("voice-status")
+        .innerText = "🎤 Listening...";
+
+    if(window.startListening){
+        window.startListening();
+    }
+};
+
+window.speechSynthesis.speak(speech);
+
+</script>
+{% endif %}
+
+<!-- Voice Recognition -->
+<script>
+
+window.speechSynthesis.cancel();
+
+function speakAnswer(text){
+
+    const speech = new SpeechSynthesisUtterance(text);
+
+    speech.rate = 1;
+    speech.pitch = 1.1;
+    speech.volume = 1;
+
+    const voices = window.speechSynthesis.getVoices();
+
+    const femaleVoice = voices.find(v =>
+        v.name.toLowerCase().includes("female") ||
+        v.name.toLowerCase().includes("zira") ||
+        v.name.toLowerCase().includes("susan") ||
+        v.name.toLowerCase().includes("samantha") ||
+        v.name.toLowerCase().includes("victoria") ||
+        v.name.toLowerCase().includes("karen") ||
+        v.name.toLowerCase().includes("hazel") ||
+        v.name.toLowerCase().includes("aria")
+    );
+
+    if(femaleVoice){
+        speech.voice = femaleVoice;
+    }
+
+    speech.onstart = () => {
+
+        if(window.recognition){
+            window.recognition.stop();
+        }
+
+        document.getElementById("voice-status")
+            .innerText = "🔊 Speaking...";
+    };
+
+    speech.onend = () => {
+
+        document.getElementById("voice-status")
+            .innerText = "🎤 Listening...";
+
+        if(window.startListening){
+            window.startListening();
+        }
+    };
 
     window.speechSynthesis.speak(speech);
 }
 
-window.onload = () => {
+const answer =
+`{{ answer|escapejs }}`;
 
-    const responses =
-    document.querySelectorAll(".cipher-response");
-
-    if(responses.length){
-
-        const latest =
-        responses[responses.length - 1];
-
-        speak(latest.innerText);
-    }
-
+window.speechSynthesis.onvoiceschanged = () => {
+    speakAnswer(answer);
 };
 
-
-// VOICE INPUT
-
-const micBtn =
-document.getElementById("micBtn");
-
-const ring =
-document.getElementById("ring");
-
-const input =
-document.getElementById("messageInput");
-
-if(
-    window.SpeechRecognition ||
-    window.webkitSpeechRecognition
-){
-
-    const SpeechRecognition =
-        window.SpeechRecognition ||
-        window.webkitSpeechRecognition;
-
-    const recognition =
-        new SpeechRecognition();
-
-    recognition.lang = "en-US";
-
-    micBtn.addEventListener("click", () => {
-
-        ring.classList.remove("hidden");
-        ring.classList.add("pulse-ring");
-
-        recognition.start();
-
-    });
-
-    recognition.onresult = (event) => {
-
-        input.value =
-        event.results[0][0].transcript;
-
-    };
-
-    recognition.onend = () => {
-
-        ring.classList.add("hidden");
-        ring.classList.remove("pulse-ring");
-
-    };
-
+if(window.speechSynthesis.getVoices().length){
+    speakAnswer(answer);
 }
 
 </script>
+
+<style>
+
+@keyframes fadeIn {
+
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fadeIn {
+    animation: fadeIn .5s ease;
+}
+
+</style>
+```
 
 </body>
 </html>

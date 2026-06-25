@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Knowledge Dashboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="min-h-screen bg-[radial-gradient(circle_at_top,_#0f2a43_0%,_#020617_60%)] text-white p-6">
+
+<div class="max-w-7xl mx-auto">
+
+    <!-- HEADER -->
+    <div class="mb-10">
+        <h1 class="text-4xl font-bold">
+            Knowledge Base
+        </h1>
+        <p class="text-slate-400 mt-2">
+            Manage your AI assistant knowledge.
+        </p>
+    </div>
+
+    <div class="grid lg:grid-cols-3 gap-8">
+
+        <!-- ADD FORM -->
+        <div class="lg:col-span-1">
+
+            <div class="bg-white/10 backdrop-blur-xl border border-white/10 rounded-3xl p-6">
+
+                <h2 class="text-2xl font-semibold mb-6">
+                    Add Knowledge
+                </h2>
+
+                <form method="POST" class="space-y-5">
+                    {% csrf_token %}
+
+                    <div>
+                        <label class="block mb-2 text-sm text-slate-300">
+                            Title
+                        </label>
+
+                        <input
+                            type="text"
+                            name="title"
+                            required
+                            class="w-full bg-white/10 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                    </div>
+
+                    <div>
+                        <label class="block mb-2 text-sm text-slate-300">
+                            Content
+                        </label>
+
+                        <textarea
+                            name="content"
+                            rows="7"
+                            required
+                            class="w-full bg-white/10 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        ></textarea>
+                    </div>
+
+                    <button
+                        type="submit"
+                        class="w-full bg-blue-600 hover:bg-blue-700 transition rounded-xl py-3 font-medium"
+                    >
+                        Save Knowledge
+                    </button>
+                </form>
+
+            </div>
+
+        </div>
+
+        <!-- LIST -->
+        <div class="lg:col-span-2">
+
+            <div class="space-y-5">
+
+                {% for item in knowledge_list %}
+
+                <div class="bg-white/10 backdrop-blur-xl border border-white/10 rounded-3xl p-6">
+
+                    <div class="flex justify-between items-start gap-4">
+
+                        <div>
+                            <h3 class="text-xl font-semibold">
+                                {{ item.title }}
+                            </h3>
+
+                            <p class="text-slate-300 mt-3">
+                                {{ item.content|truncatewords:30 }}
+                            </p>
+                        </div>
+
+                        <div class="flex gap-3">
+
+                            <button
+    onclick="openEditModal(
+        '{{ item.id }}',
+        '{{ item.title|escapejs }}',
+        '{{ item.content|escapejs }}'
+    )"
+    class="px-4 py-2 rounded-lg bg-yellow-500 hover:bg-yellow-600 text-black font-medium"
+>
+    Edit
+</button>
+
+                            <a
+                                href="{% url 'delete_knowledge' item.id %}"
+                                onclick="return confirm('Delete this record?')"
+                                class="px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 font-medium"
+                            >
+                                Delete
+                            </a>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                {% empty %}
+
+                <div class="bg-white/10 rounded-3xl p-10 text-center">
+                    No knowledge added yet.
+                </div>
+
+                {% endfor %}
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- SUCCESS MODAL -->
+{% if success %}
+<div
+id="successModal"
+class="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
+>
+
+    <div class="bg-slate-900 border border-green-500 rounded-3xl p-8 text-center max-w-md mx-4">
+
+        <div class="text-6xl mb-4">
+            ✅
+        </div>
+
+        <h2 class="text-2xl font-bold mb-3">
+            Success
+        </h2>
+
+        <p class="text-slate-300">
+            Knowledge added successfully.
+        </p>
+
+        <button
+            onclick="closeModal()"
+            class="mt-6 px-6 py-3 bg-green-600 rounded-xl hover:bg-green-700"
+        >
+            Continue
+        </button>
+
+    </div>
+
+</div>
+{% endif %}
+
+
+
+<div
+    id="editModal"
+    class="fixed inset-0 bg-black/70 hidden items-center justify-center z-50 p-4"
+>
+
+    <div class="w-full max-w-2xl bg-slate-900 border border-slate-700 rounded-3xl p-8">
+
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold text-white">
+                Edit Knowledge
+            </h2>
+
+            <button
+                onclick="closeEditModal()"
+                class="text-slate-400 hover:text-white text-3xl"
+            >
+                &times;
+            </button>
+        </div>
+
+        <form method="POST" id="editForm">
+
+            {% csrf_token %}
+
+            <input
+                type="hidden"
+                id="editId"
+                name="id"
+            >
+
+            <div class="mb-5">
+                <label class="block text-white mb-2">
+                    Title
+                </label>
+
+                <input
+                    type="text"
+                    id="editTitle"
+                    name="title"
+                    class="w-full bg-white/10 border border-white/10 rounded-xl px-4 py-3 text-white"
+                >
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-white mb-2">
+                    Content
+                </label>
+
+                <textarea
+                    id="editContent"
+                    name="content"
+                    rows="8"
+                    class="w-full bg-white/10 border border-white/10 rounded-xl px-4 py-3 text-white"
+                ></textarea>
+            </div>
+
+            <div class="flex gap-4">
+
+                <button
+                    type="submit"
+                    class="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-xl text-white"
+                >
+                    Update
+                </button>
+
+                <button
+                    type="button"
+                    onclick="closeEditModal()"
+                    class="bg-slate-700 hover:bg-slate-600 px-6 py-3 rounded-xl text-white"
+                >
+                    Cancel
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+<script>
+
+function openEditModal(id, title, content){
+
+    document.getElementById("editId").value = id;
+    document.getElementById("editTitle").value = title;
+    document.getElementById("editContent").value = content;
+
+    document.getElementById("editForm").action =
+        `/knowledge/edit/${id}/`;
+
+    document.getElementById("editModal")
+        .classList.remove("hidden");
+
+    document.getElementById("editModal")
+        .classList.add("flex");
+}
+
+function closeEditModal(){
+
+    document.getElementById("editModal")
+        .classList.add("hidden");
+
+    document.getElementById("editModal")
+        .classList.remove("flex");
+}
+
+</script>
+
+<script>
+function closeModal(){
+    document.getElementById("successModal").style.display = "none";
+}
+
+setTimeout(()=>{
+    const modal = document.getElementById("successModal");
+    if(modal){
+        modal.style.display="none";
+    }
+},3000);
+</script>
+
+</body>
+</html>
