@@ -10,8 +10,94 @@
 
 <body class="min-h-screen bg-[radial-gradient(circle_at_top,_#0f2a43_0%,_#020617_60%)]">
 
+<!-- ── Top Navigation ───────────────────────────────────────── -->
+<nav class="fixed top-0 left-0 right-0 z-50 px-4 py-3 flex items-center justify-end">
+
+    <!-- Hamburger Toggle Button -->
+    <button
+        id="menuBtn"
+        class="flex flex-col justify-center items-center w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 transition gap-1.5"
+    >
+        <span id="bar1" class="block w-5 h-0.5 bg-white rounded transition-all duration-300"></span>
+        <span id="bar2" class="block w-5 h-0.5 bg-white rounded transition-all duration-300"></span>
+        <span id="bar3" class="block w-5 h-0.5 bg-white rounded transition-all duration-300"></span>
+    </button>
+
+</nav>
+
+<!-- ── Side Drawer ──────────────────────────────────────────── -->
+
+<!-- Overlay -->
+<div
+    id="overlay"
+    class="hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+></div>
+
+<!-- Drawer -->
+<div
+    id="drawer"
+    class="fixed top-0 right-0 z-50 h-full w-72 bg-[#0a1f35]/95 backdrop-blur-xl border-l border-white/10 shadow-2xl transform translate-x-full transition-transform duration-300"
+>
+
+    <!-- Drawer Header -->
+    <div class="flex items-center justify-between px-5 py-4 border-b border-white/10">
+
+        <div class="flex items-center gap-3">
+            <!-- Avatar -->
+            <div class="w-10 h-10 rounded-full bg-blue-500/40 flex items-center justify-center text-white font-bold">
+                {{ request.user.username|first|upper|default:"U" }}
+            </div>
+            <div>
+                <p class="text-white font-semibold text-sm">{{ request.user.username|default:"User" }}</p>
+                <p class="text-slate-400 text-xs">{{ request.user.email|default:"" }}</p>
+            </div>
+        </div>
+
+        <!-- Close Button -->
+        <button
+            id="closeBtn"
+            class="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 text-slate-400 hover:text-white transition"
+        >
+            ✕
+        </button>
+
+    </div>
+
+    <!-- Drawer Menu Items -->
+    <div class="py-4 px-3 flex flex-col gap-1">
+
+        <a href="/profile/"
+           class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition text-sm font-medium">
+            <span class="text-xl">👤</span>
+            Profile
+        </a>
+
+        <a href="/history/"
+           class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition text-sm font-medium">
+            <span class="text-xl">🕘</span>
+            Chat History
+        </a>
+
+        <a href="/settings/"
+           class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition text-sm font-medium">
+            <span class="text-xl">⚙️</span>
+            Settings
+        </a>
+
+        <div class="border-t border-white/10 mt-3 pt-3">
+            <a href="/logout/"
+               class="flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:text-red-300 hover:bg-red-500/10 transition text-sm font-medium">
+                <span class="text-xl">🚪</span>
+                Logout
+            </a>
+        </div>
+
+    </div>
+
+</div>
+
 <!-- Main Content -->
-<div class="max-w-4xl mx-auto px-4 pt-10 pb-40">
+<div class="max-w-4xl mx-auto px-4 pt-28 pb-40">
 
     <!-- Header -->
     <div class="text-center mb-10">
@@ -108,14 +194,53 @@
 
 <script>
 
-    const statusEl  = () => document.getElementById("voice-status");
-    const input     = document.getElementById("questionInput");
-    const form      = document.getElementById("chatForm");
+    // ── Drawer Toggle ──────────────────────────────────────
+    const menuBtn  = document.getElementById("menuBtn");
+    const closeBtn = document.getElementById("closeBtn");
+    const drawer   = document.getElementById("drawer");
+    const overlay  = document.getElementById("overlay");
+    const bar1     = document.getElementById("bar1");
+    const bar2     = document.getElementById("bar2");
+    const bar3     = document.getElementById("bar3");
+
+    let drawerOpen = false;
+
+    function openDrawer() {
+        drawerOpen = true;
+        drawer.classList.remove("translate-x-full");
+        overlay.classList.remove("hidden");
+        // Animate hamburger to X
+        bar1.style.transform = "translateY(8px) rotate(45deg)";
+        bar2.style.opacity   = "0";
+        bar3.style.transform = "translateY(-8px) rotate(-45deg)";
+    }
+
+    function closeDrawer() {
+        drawerOpen = false;
+        drawer.classList.add("translate-x-full");
+        overlay.classList.add("hidden");
+        // Animate X back to hamburger
+        bar1.style.transform = "";
+        bar2.style.opacity   = "1";
+        bar3.style.transform = "";
+    }
+
+    menuBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        drawerOpen ? closeDrawer() : openDrawer();
+    });
+
+    closeBtn.addEventListener("click",  closeDrawer);
+    overlay.addEventListener("click",   closeDrawer);
+
+    // ── Voice ──────────────────────────────────────────────
+    const statusEl = () => document.getElementById("voice-status");
+    const input    = document.getElementById("questionInput");
+    const form     = document.getElementById("chatForm");
 
     let isListening = false;
     let isSpeaking  = false;
 
-    // ── Speech Recognition Setup ───────────────────────────
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
@@ -127,7 +252,7 @@
     if (recognition) {
 
         recognition.continuous     = false;
-        recognition.interimResults = true;  // show words as they come in
+        recognition.interimResults = true;
         recognition.lang           = "en-US";
 
         recognition.onstart = () => {
@@ -135,7 +260,6 @@
             statusEl().innerText = "🎤 Listening...";
         };
 
-        // Show interim results in input box as user speaks
         recognition.onresult = (event) => {
             let interim = "";
             let final   = "";
@@ -149,7 +273,6 @@
                 }
             }
 
-            // Print to input box live
             input.value = final || interim;
 
             if (final) {
@@ -161,45 +284,35 @@
 
         recognition.onerror = (event) => {
             isListening = false;
-
             if (event.error === "not-allowed") {
                 statusEl().innerText = "❌ Mic blocked — allow mic in Chrome settings";
-                return; // don't restart if permission denied
+                return;
             }
-
-            // For all other errors, restart after a short delay
             statusEl().innerText = "⚠️ " + event.error + " — restarting...";
             setTimeout(() => startListening(), 1000);
         };
 
         recognition.onend = () => {
             isListening = false;
-
-            // Auto restart unless speaking or tab is hidden
             if (!isSpeaking && !document.hidden) {
                 setTimeout(() => startListening(), 300);
             }
         };
     }
 
-    // ── Start Listening ────────────────────────────────────
     function startListening() {
         if (!recognition || isListening || isSpeaking || document.hidden) return;
         try {
             recognition.start();
-        } catch (e) {
-            // already started — ignore
-        }
+        } catch (e) {}
     }
 
-    // Restart mic when tab becomes visible again
     document.addEventListener("visibilitychange", () => {
         if (!document.hidden && !isSpeaking) {
             setTimeout(() => startListening(), 300);
         }
     });
 
-    // ── Speech Synthesis ───────────────────────────────────
     function speakAnswer(text) {
 
         if (!text) return;
@@ -219,14 +332,12 @@
 
         utter.onstart = () => {
             isSpeaking = true;
-            // Stop mic before speaking to avoid feedback
             if (recognition) recognition.abort();
             statusEl().innerText = "🔊 Speaking...";
         };
 
         utter.onend = () => {
             isSpeaking = false;
-            // Wait 500ms after speaking before restarting mic
             setTimeout(() => startListening(), 500);
         };
 
@@ -238,13 +349,10 @@
         window.speechSynthesis.speak(utter);
     }
 
-    // ── Init on page load ──────────────────────────────────
     async function init() {
-
-        // Request mic permission on page load
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            stream.getTracks().forEach(t => t.stop()); // release stream, recognition manages its own
+            stream.getTracks().forEach(t => t.stop());
         } catch (err) {
             statusEl().innerText = "❌ Mic permission denied — allow it in Chrome settings";
             return;
@@ -253,7 +361,6 @@
         const answerText = `{{ answer|escapejs }}`;
 
         if (answerText) {
-            // Speak the answer first, mic restarts after
             if (window.speechSynthesis.getVoices().length) {
                 speakAnswer(answerText);
             } else {
@@ -263,7 +370,6 @@
                 };
             }
         } else {
-            // No answer — start listening immediately
             startListening();
         }
     }
